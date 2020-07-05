@@ -1,0 +1,161 @@
+PEP: 9999
+Title: Recording the source hash of installed distribution
+Author: Noah Gorny <noah.bar.ilan@gmail.com>
+Sponsor: ??? <???>
+Status: Draft
+Type: Standards Track
+Content-Type: text/x-rst
+Created: 5-Jul-2020
+Post-History:
+Discussion-To:
+
+Abstract
+========
+
+Currently, after installation, the hash of the downloaded sdist/wheel is not recorded.
+
+This proposal defines
+additional metadata, to be added to the installed distribution by the
+installation front end, which records the source hash for use by
+consumers which introspect the database of installed packages (see PEP 376).
+
+Motivation
+==========
+
+The original motivation of this PEP was to permit tools with a "freeze"
+operation allowing a Python environment to be recreated to extend their capabilities
+and provide a secure way to generate hash-pinned requirements.
+
+Specifically, the PEP originated from the desire to address `pip issue #4732`_:
+i.e. improving the behavior of ``pip freeze`` to allow it to output installed packages hash,
+in order to allow easy pinning of the requirements, and easy reproduction
+of the environment using hash-checking mode.
+
+Freezing an environment
+-----------------------
+
+Pip also sports a command named ``pip freeze`` which examines the Database of
+Installed Python Distributions to generate a list of requirements. The main
+goal of this command is to help users generating a list of requirements that
+will later allow the re-installation the same environment with the highest
+possible fidelity.
+
+However, you can not currently output the installed distribution's hash,
+as this information is not stored and can not always be computed at run time
+from local information.
+This means that there is no easy way to output source hashes using `pip freeze`.
+
+The advantages of installing in hash-checking mode
+--------------------------------------------------
+As noted in the pip `user guide`__, hash-checking mode allows for increased
+fidelity in case of compromised PyPI or HTTPS cert chain, or in the case of
+package change without version changing. This approach allows for easier and more
+secure automated server deployment.
+
+It is also labor-saving alternative to running private index server with approved
+packages. It can also substitute for a vendor library, providing easier
+upgrades and less VCS noise.
+
+Rationale
+=========
+
+This PEP specifies a new ``HASH`` metadata file in the
+``.dist-info`` directory of an installed distribution.
+
+The fields specified are sufficient to retrieve source distribution hash,
+of various algorithms. The line by line format allows for algorithms to be
+inserted and deleted in the future easily.
+
+Specification
+=============
+
+This PEP specifies a ``HASH`` file in the ``.dist-info`` directory
+of an installed distribution, to record the source hash of the distribution.
+
+The canonical source for the name and semantics of this metadata file is
+the `Recording the source hash of installed distribution`_ document.
+
+This file SHOULD be created by installers in any installation.
+
+This file MUST be formatted as lines of ``hash_algorithm:hash``.
+``hash_algorithm`` specifies the hash algorithm used, it is RECOMMENDED that
+only hashes which are specified here be used for source distribution hashes.
+At time of writing, that list consists of 'sha256', 'sha384', and 'sha512'
+as those are the preferred algorithms used by ``pip``'s hash-checking-mode.
+``hash`` specifies the hash result of the hash algorithm operation on the
+source distribution, represented as lower-case hexadecimal ASCII string.
+
+Note about different types of sources
+-------------------------------------
+
+Distribution can be obtained with different type of packaging. One example would
+be the ``wheel`` format (PEP 427), and another would be source distribution (sdist).
+We need to note that we should take the hash of the ``source``, regardless of his type
+this means that we should save the hash of the original sdist ``tar.gz`` and not
+of the resulting built wheel as wheel building is nondeterministic.
+In any case, we take the single compressed file that we downloaded,
+calculate his hash, and place the results in the final HASH file.
+
+Use cases
+=========
+
+"Freezing" an environment
+
+  Tools, such as ``pip freeze``, which generate requirements from the Database
+  of Installed Python Distributions SHOULD exploit ``HASH``
+  if it is present, and give it priority over other means to generate hashes, in order
+  to generate a higher fidelity output. Tools are not required to output the hashes
+  in the default use-case, and it is RECOMMENDED to allow this option via a specialized flag.
+
+Backwards Compatibility
+=======================
+
+Since this PEP specifies a new file in the ``.dist-info`` directory,
+there are no backwards compatibility implications.
+
+Alternatives
+============
+
+There are various alternatives, which all share the same problem- they generate
+hashes from remote sources, as they can not generate hash from the local
+installation (unless saved in cache).
+
+pipenv
+------
+Environment manager that organizes your python environment using ``Pipfile.lock``
+which contains hashes of the distribution source. Those hashes are obtained ``after``
+installation, using remote queries of the warehouse API. This solution works, but
+requires you to use pipenv to manage all of your python package environment.
+It also queries the hashes from the remote, which, if intercepted, can be modified with
+regardless of actual local distribution original hash.
+
+References
+==========
+
+.. _`pip issue #4732`: https://github.com/pypa/pip/issues/4732
+.. _`user guide`:  https://pip.pypa.io/en/stable/user_guide/#hash-checking-mode
+
+
+Acknowledgements
+================
+
+Various people helped me created this PEP. I drew much inspiration from PEP 610,
+created by Stéphane Bidoul. Paul F. Moore and Tzu-ping Chung provided nice ideas
+and helped me to improve and create this PEP.
+
+
+Copyright
+=========
+
+This document is placed in the public domain or under the
+CC0-1.0-Universal license, whichever is more permissive.
+
+
+..
+   Local Variables:
+   mode: indented-text
+   indent-tabs-mode: nil
+   sentence-end-double-space: t
+   fill-column: 70
+   coding: utf-8
+   End:
